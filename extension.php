@@ -32,6 +32,7 @@ class NtfyExtension extends Minz_Extension {
 		$config = $this->getUserConfiguration();
 
 		$config['server'] = trim(trim(Minz_Request::paramString("server")), '/');
+		$config['auth_token'] = trim(Minz_Request::paramString("auth_token"));
 		$config['default_topic'] = trim(trim(Minz_Request::paramString("default_topic")), '/');
 		$config['aggregate'] = Minz_Request::paramBoolean("aggregate");
 
@@ -55,8 +56,21 @@ class NtfyExtension extends Minz_Extension {
 
 		if ($entry->isUpdated()) return $entry;
 
-		if(!isset($this->cache[$feed->id()])) $this->cache[$feed->id()] = 0;
-		$this->cache[$feed->id()] += 1;
+		$feedId = $feed->id();
+		if (!isset($this->cache[$feedId])) {
+			$this->cache[$feedId] = [
+				'count' => 0,
+				'excerpts' => [],
+			];
+		}
+		$this->cache[$feedId]['count'] += 1;
+
+		$content = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($entry->content(false)), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+		if ($content !== '') {
+			$words = explode(' ', $content);
+			$excerpt = implode(' ', array_slice($words, 0, 200));
+			$this->cache[$feedId]['excerpts'][] = $excerpt;
+		}
 
 		return $entry;
 	}
@@ -73,30 +87,45 @@ class NtfyExtension extends Minz_Extension {
 		$feedDAO = FreshRSS_Factory::createFeedDao();
 		$total = 0;
 
-		foreach ($this->cache as $feedId => $feedCount) {
+		foreach ($this->cache as $feedId => $feedData) {
+			$feedCount = $feedData['count'];
 			$feed = $feedDAO->searchById($feedId);
 			$topic = $config['feeds'][$feedId]['topic'] ?? null;
 			if ($topic === null) {
 				if ($config['aggregate']) {
 					$total += $feedCount;
+					$aggregateExcerpts = array_merge($aggregateExcerpts ?? [], $feedData['excerpts']);
 					continue;
 				}
 				$topic = $defaultTopic;
 			}
 			$feedName = $feed->name();
-			$this->sendNotification("$server/$topic", "'$feedName' has $feedCount new article(s)");
+			$message = "'$feedName' has $feedCount new article(s)";
+			if (!empty($feedData['excerpts'])) {
+				$message .= "\n\n" . implode("\n\n", $feedData['excerpts']);
+			}
+			$this->sendNotification("$server/$topic", $message, $config['auth_token'] ?? null);
 		}
 
 		if($config['aggregate'] && $total > 0) {
-			$this->sendNotification("$server/$defaultTopic", "Your feeds have $feedCount new article(s)");
+			$message = "Your feeds have $total new article(s)";
+			if (!empty($aggregateExcerpts)) {
+				$message .= "\n\n" . implode("\n\n", $aggregateExcerpts);
+			}
+			$this->sendNotification("$server/$defaultTopic", $message, $config['auth_token'] ?? null);
 		}
 	}
 
-	private function sendNotification(string $url, string $content) {
+	private function sendNotification(string $url, string $content, ?string $authToken): void {
+		$headers = ['Content-Type: text/plain'];
+		if ($authToken !== null && $authToken !== '') {
+			$headers[] = 'Authorization: Bearer ' . $authToken;
+		}
+
 		file_get_contents($url, false, stream_context_create([
 			'http' => [
 				'method' => 'POST', // PUT also works
-				'header' => 'Content-Type: text/plain',
+				'header' => implode("\r\n", $headers),
 				'content' => $content,
 			]
 		]));

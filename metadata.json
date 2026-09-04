@@ -1,8 +1,8 @@
 {
 	"name": "NtfyNotifications",
-	"author": "pe1uca",
+	"author": "Oridjinn1980",
 	"description": "Send notifications via ntfy",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"entrypoint": "Ntfy",
 	"type": "user"
 }

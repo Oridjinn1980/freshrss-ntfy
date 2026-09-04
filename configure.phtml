@@ -16,6 +16,13 @@ declare(strict_types=1);
 	</div>
 
 	<div class="form-group">
+		<label class="group-name" for="auth_token"><?= _t('ext.ntfy.auth_token') ?></label>
+		<div class="group-controls">
+			<input type="password" name="auth_token" id="auth_token" class="w100" value="<?= $this->getUserConfigurationValue('auth_token') ?>" autocomplete="off" />
+		</div>
+	</div>
+
+	<div class="form-group">
 		<label class="group-name" for="default_topic"><?= _t('ext.ntfy.default_topic') ?></label>
 		<div class="group-controls">
 			<input type="text" name="default_topic" id="default_topic" class="w100" value="<?= $this->getUserConfigurationValue('default_topic') ?>" />

@@ -9,6 +9,7 @@ The default topic receives one notification per feed.
 Once the extension has been installed and enabled, you can:  
 
 - Configure the ntfy.sh server to use.  
+- Configure an optional server authentication token.
 - Configure a topic to send the notifications.  
 - Configure a topic per feed.  
 
@@ -20,5 +21,5 @@ Once the extension has been installed and enabled, you can:
 - [ ] Configuration for [ntfy.sh parameters](https://docs.ntfy.sh/publish/) suited for the flow.  
 	- [ ] Priority (default and per feed).  
 	- [ ] Icons per feed.  
-	- [ ] Server authentication.  
+	- [x] Server authentication.
 - [ ] Configuration per category.  
