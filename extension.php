@@ -116,19 +116,45 @@ class NtfyExtension extends Minz_Extension {
 		}
 	}
 
-	private function sendNotification(string $url, string $content, ?string $authToken): void {
+	private function sendNotification(string $url, string $content, ?string $authToken): void
+	{
 		$headers = ['Content-Type: text/plain'];
 		if ($authToken !== null && $authToken !== '') {
 			$headers[] = 'Authorization: Bearer ' . $authToken;
 		}
 
-		file_get_contents($url, false, stream_context_create([
-			'http' => [
-				'method' => 'POST', // PUT also works
-				'header' => implode("\r\n", $headers),
-				'content' => $content,
-			]
-		]));
+		if (!function_exists('curl_init')) {
+			Minz_Log::warning('[ntfy] cURL extension not available, cannot send notification.');
+			return;
+		}
+
+		$ch = curl_init($url);
+		if ($ch === false) {
+			Minz_Log::warning('[ntfy] Failed to initialize cURL handle.');
+			return;
+		}
+
+		curl_setopt_array($ch, [
+			CURLOPT_CUSTOMREQUEST  => 'POST', // PUT also works
+			CURLOPT_POSTFIELDS     => $content,
+			CURLOPT_HTTPHEADER     => $headers,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_CONNECTTIMEOUT => 5,
+			CURLOPT_TIMEOUT        => 10,
+		]);
+
+		$response = curl_exec($ch);
+
+		if ($response === false) {
+			Minz_Log::warning('[ntfy] cURL error sending notification: ' . curl_error($ch));
+		} else {
+			$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			if ($status < 200 || $status >= 300) {
+				Minz_Log::warning("[ntfy] Unexpected HTTP status {$status} from {$url}: {$response}");
+			}
+		}
+
+		curl_close($ch);
 	}
 
 	public function jsVars(array $vars): array {
